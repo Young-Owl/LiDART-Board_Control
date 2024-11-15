@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Square size in pixels
+squareSize = 20
+
 # Laser parameters
 laser_diameter = 4.5e-3
 laser_divergence = 0.2e-3
@@ -10,17 +13,18 @@ wavelength = 850e-9
 focal_length = 16e-3 					# In meters
 
 # Field of view in radians per pixel
-AfovPxRad = 0.024* np.pi / 180 			# 0.024 degrees - (Valor Renato Tese, medido)
-print(AfovPxRad)
+AfovPxRad = 0.021* np.pi / 180 			# 0.024 degrees - (Valor Renato Tese, medido)
+#print(AfovPxRad)
 
 # Parameters for Lidar equation
 ar = np.pi * (11.4e-3 / 2) ** 2			# Aperture area in meters
 reflectivity = 80 / 100 				# Includes object reflectivity and objective lens transmissivity
 
 # Pulse Energy calculation
-laser_power = 30e-3						# Laser power in watts (30 mW)
-frame_rate = 50							# Frame rate in Hz
-pulse_energy = laser_power / frame_rate	# Pulse energy in joules	
+laser_power = 30e-3								# Laser power in watts (30 mW)
+exposure_time = 50e-6							# Exposure time in seconds
+pulse_energy = laser_power * exposure_time		# Pulse energy in joules	
+#print(pulse_energy)
 
 # Constants
 h = 6.626e-34  							# J*s
@@ -74,6 +78,7 @@ def get_noise(point, d, aux_x, aux_y):
 	# Total number of received photons
 	free_space_path_loss = 1 / (4 * np.pi * d**2)
 	energy_captured_by_camera = pulse_energy * free_space_path_loss * ar * reflectivity
+	#print(energy_captured_by_camera)
 	photon_energy = h * c / wavelength
 	num_photons = energy_captured_by_camera / photon_energy
 	# print(num_photons)
@@ -93,10 +98,20 @@ def get_noise(point, d, aux_x, aux_y):
 	y = np.hstack((y, -y))
 
 	# Identify which pixels are illuminated by the laser dots
-	x1minPx = np.floor(np.min(x / pixel_width) + aux_x)
-	x1maxPx = np.ceil(np.max(x / pixel_width) + aux_x)
-	y1minPx = np.floor(np.min(y / pixel_width) + aux_y)
-	y1maxPx = np.ceil(np.max(y / pixel_width) + aux_y)
+ 
+	# ============= To simulate a bigger square =============
+	x1minPx = -squareSize/2
+	x1maxPx = squareSize/2
+	y1minPx = -squareSize/2
+	y1maxPx = squareSize/2
+	# =====================================================
+
+	# ============= To simulate only the spot =============
+	#x1minPx = np.floor(np.min(x / pixel_width) + aux_x)
+	#x1maxPx = np.ceil(np.max(x / pixel_width) + aux_x)
+	#y1minPx = np.floor(np.min(y / pixel_width) + aux_y)
+	#y1maxPx = np.ceil(np.max(y / pixel_width) + aux_y) 
+	# =====================================================
 
 	# Identify the meshgrid of pixels
 	xPx = np.arange(x1minPx, x1maxPx + 1)
@@ -191,7 +206,8 @@ def add_camera_noise(num_photons, noiseOn=True, baselineOn=True):
 
 if __name__ == "__main__":
 
-	for d in [1,2,4,8]:
+	# Distance sweep 2^n
+	for d in [1, 2, 4, 8, 16, 24, 46]:
 		print('Distance = ' + str(d) + ' m')
 		point = [0, 0, d, 1]
 		sum = 0
@@ -217,7 +233,7 @@ if __name__ == "__main__":
 					cnt = cnt + 1
 		print('Number of pixels above the baseline = ' + str(cnt))
 
-		squareSize = 20
+		
 
 		# Plot the laser dot and fill the rest of the empty space with zeros
 		# These zeros should also be color coded to represent the background noise
@@ -229,13 +245,14 @@ if __name__ == "__main__":
 		# Ensure padding is correct for the image
 		imageOut = np.pad(imageOut, ((int((squareSize - imageOut.shape[0]) / 2), 
 									int((squareSize - imageOut.shape[0]) / 2))), 
-									'constant', constant_values=(0, 0))
-
+									'constant', constant_values=(112, 122))
+  
 		fig, ax = plt.subplots()
 
 		# Set axis limits based on the actual size of imageOut
-		ax.set_xlim(0, imageOut.shape[1])
-		ax.set_ylim(0, imageOut.shape[0])
+		ax.set_xlim(0, imageOut.shape[1]-0.5)
+		ax.set_ylim(0, imageOut.shape[0]-0.5)
+		
 
 		# Enable grid (both major and minor grids)
 		#ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='gray')
@@ -263,7 +280,9 @@ if __name__ == "__main__":
 		cb.set_label('ADU')
 
 		# Show the plot
-		#plt.savefig('Sim1Laser' + str(d) + '.png')
+		plt.tight_layout()
+		#plt.savefig('FixSim1Laser' + str(d) + '.png')
+  
 		plt.show()
 		""" # Add to imageOut zeros to fill the squareSize matrix
 		imageOut = np.pad(imageOut, ((int((squareSize - len(imageOut))/2), int((squareSize - len(imageOut))/2))), 'constant', constant_values=(0, 0))

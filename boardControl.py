@@ -29,8 +29,15 @@ from simple_pyueye import CameraObj as Camera
 
 # Information declared via argparse (Global Variables; Not the best practice, but it works)
 parser = argparse.ArgumentParser(description='LiDART Pulse Generator Script, responsible for the board setup, or testing it.')
+
+# Continuous Mode was an experimental mode that was firstly used for setting the laser to be turned on continuously using the PCB.
+# Deprecated since there's no need for it. The laser can be turned on using a power supply.
 parser.add_argument('-c', '--continuous_mode', action="store_true", help='Defines if laser will be \'continously\' turned on.')
+
+# Dual shot Mode takes two cameras, one with a certain exposure time and the other with a different exposure time.
 parser.add_argument('-ds', '--dual_shot', action="store_true", help='Makes the camera take two shots. Used for data gathering purposes.')
+
+# Multiple Pics Mode takes eight pictures with the same exposure time to later make an average.
 parser.add_argument('-mp', '--multiple_pics', action="store_true", help='Instead of taking just one pic, takes eight to later make an average.')
 args = parser.parse_args()
 
@@ -153,6 +160,8 @@ def find_lidar():
 def camScreenshot(cam, ser, lsrData, shotNmb, gainboost):
     ser.flushInput()
     ser.flushOutput()
+    
+    # Set the camera to trigger mode (Triggers the camera via PCB)
     ueye.is_SetExternalTrigger(0, ueye.IS_SET_TRIGGER_CONTINUOUS)
     print(Fore.BLUE + "Camera set as Trigger")
 
@@ -161,12 +170,13 @@ def camScreenshot(cam, ser, lsrData, shotNmb, gainboost):
     # Uses modified version of the pyueye library
     # Lib\site-packages\simple_pyueye\camera.py
 
+    # Set color mode: https://www.1stvision.com/cameras/IDS/IDS-manuals/uEye_Manual/sdk_allgemeines_farbformate.html
     cam.set_color_mode(ueye.IS_CM_MONO12)                       # Set the color mode to MONO12 (12bit grayscale)
     cam.alloc_mem(verbose = False)                              # Allocate memory for the camera after all settings have been set     
     
     frame = cam.capture_still(save = False, boost = gainboost)   # Capture a still image from the camera
 
-    # Convert the image to match the camera's color mode
+    # Convert the image to match the camera's color mode and bit depth
     frame = np.squeeze(frame, axis=2)
     im = Image.fromarray((frame*(2^12)).astype(np.uint16))
     frame = np.array(im, dtype=np.uint16)
@@ -185,7 +195,7 @@ def camScreenshot(cam, ser, lsrData, shotNmb, gainboost):
     cv2.putText(frame, text, (20, height - 20), cv2.FONT_HERSHEY_PLAIN, 2, (2**16, 2**16, 2**16), 2)
 
     # =============================================== #
-    # Modify these values before taking the picture
+    # Modify these values before taking the picture so the name turns out correctly
     dataStr = "30mW_2m"
     focusStr = "_F1"
     laser = 1
@@ -265,7 +275,7 @@ def main():
     # Colorama initialization
     init(autoreset=True)
     
-    # Find the LiDART Pulse Generator USB Serial Port
+    # Find the LiDART Pulse Generator USB Serial Port 
     ser = find_lidar()
     if ser is None:
         return
@@ -301,19 +311,24 @@ def main():
     #	  <- lsrD ->|<------ lsrW ------>|
     # ------------------------------------------------- # '''
 
+    # PCB Parameters (Only needed for sincronization purposes)
     lsrDtime = 20e-6        # Laser Delay
     lsrWtime = 80e-6        # Laser Width
     camDtime = 20e-6        # Camera Delay
     camWtime = 50e-6      # Camera Width (Mininum 18us)
     
+    # Variables used for the second shot, if dual_shot is enabled
     camWtime2   = 0                                     # Camera Width for the second shot, if dual_shot is enabled
     camWtimems2 = 0                                     # Camera Width (ms), if dual_shot is enabled
     camW2       = bytes.fromhex(format(0, '04x'))       # Camera Width (little endian), if dual_shot is enabled
     
+    # Transform the camera width into ms (For the exposure function)
     camWtimems  = camWtime * 1000                       # Camera Width (Mininum 18us)
     
+    # Data used for the laser and camera delays and widths
     lsrData     = [lsrDtime, lsrWtime, camDtime, camWtime]
     
+    # Set the delays and widths for the first shot
     lsrD = set_delay(lsrDtime)			
     lsrW = set_delay(lsrWtime)			
     camD = set_delay(camDtime)			

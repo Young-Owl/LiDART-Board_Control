@@ -19,9 +19,9 @@ ar = np.pi * (11.4e-3 / 2) ** 2			# Aperture area in meters
 reflectivity = 80 / 100 				# Includes object reflectivity and objective lens transmissivity
 
 # Pulse Energy calculation
-laser_power = 30e-3					# Laser power in watts (30 mW)
-frame_rate = 50							# Frame rate in Hz
-pulse_energy = laser_power / frame_rate	# Pulse energy in joules	
+laser_power = 30e-3								# Laser power in watts (30 mW)
+exposure_time = 50e-6							# Exposure time in seconds
+pulse_energy = laser_power * exposure_time		# Pulse energy in joules	
 
 # Constants
 h = 6.626e-34  							# J*s
@@ -197,11 +197,11 @@ count = 0
 
 if __name__ == "__main__":
 
-	squareSize = 200	
-	squareDecrease = 25
+	squareSize = 124
+	squareDecrease = 15
  
  	# Distance sweep
-	for d in [1,2,4,8]:
+	for d in [1, 2, 4, 8, 16, 24, 46]:
 		print('Distance = ' + str(d) + ' m')
 		point = [0, 0, d, 1]
 		sum = 0
@@ -248,7 +248,7 @@ if __name__ == "__main__":
 		# Count all the pixels from both spots
 		for i in range(imageOut.shape[0]):
 			for j in range(imageOut.shape[1]):
-				if imageOut[i][j] >= (max(imageOut.flatten()) - (max(imageOut.flatten())*0.8)):
+				if int(imageOut[i][j]) >= (baseline * 2):
 					sum = sum + int(imageOut[i][j])
 
 		print('Sum = ' + str(sum))
@@ -302,5 +302,6 @@ if __name__ == "__main__":
 		cb.set_label('ADU')
 
 		print(squareSize)
+		plt.tight_layout()
 		plt.show()
 		
